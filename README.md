@@ -40,17 +40,17 @@ Achieved by:
 - configurable auto-retry on low-level
 - no dependencies, permissive license
 
-## Scope & State
+## Scope
 
 The library implements only a subset of commands that I use and I have no plans to implement all possible Roboclaw commands.
 
 Currently implemented:
 
-- roboclaw_duty_m1m2
-- roboclaw_speed_m1m2
-- roboclaw_speed_accel_m1m2
-- roboclaw_main_battery_voltage
-- roboclaw_encoders
+- `roboclaw_duty_m1m2`
+- `roboclaw_speed_m1m2`
+- `roboclaw_speed_accel_m1m2`
+- `roboclaw_main_battery_voltage`
+- `roboclaw_encoders`
 
 ## Building Instructions
 

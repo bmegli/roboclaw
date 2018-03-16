@@ -15,7 +15,7 @@ You need to connect Roboclaw (or multiple Roboclaws) via USB or uart
 After shallow code inspection of available C/C++ libraries I made decission to write my own correctly.
 
 | Library                                  | What I would do differently                                                |Why did they do it this way|
------------------------------------------------------------------------------------------------------------------------------------------------------
+|------------------------------------------|----------------------------------------------------------------------------|---------------------------|
 |https://github.com/SorcererX/RoboClaw     | byte-by-byte IO, busy waiting                                              |arduino library port       |
 |https://github.com/ColinHeffernan/roboclaw| byte-by-byte IO, ROS serial dependence, hardcoded 100 ms timeout           |arduino library port       |
 |https://bitbucket.org/vo/libroboclaw/     | limited baudrate, command ACK not read, ACK-purge race, garbage on timeout |old firmare didn't have ACK|

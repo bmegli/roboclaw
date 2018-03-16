@@ -46,11 +46,11 @@ The library implements only a subset of commands that I use and I have no plans 
 
 Currently implemented:
 
--roboclaw_duty_m1m2
--roboclaw_speed_m1m2
--roboclaw_speed_accel_m1m2
--roboclaw_main_battery_voltage
--roboclaw_encoders
+- roboclaw_duty_m1m2
+- roboclaw_speed_m1m2
+- roboclaw_speed_accel_m1m2
+- roboclaw_main_battery_voltage
+- roboclaw_encoders
 
 ## Building Instructions
 

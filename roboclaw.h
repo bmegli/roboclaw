@@ -46,13 +46,14 @@ int roboclaw_init(struct roboclaw *rc, const char *tty, speed_t baudrate);
  * - tty - the device (e.g. /dev/ttyAMA0, /dev/ttyUSB0)
  * - baudrate - as defined in termios.h (e.g. B38400, B115200, ... many systems also define higher baudrates than standard)
  * - retries - the number of retries the library should make before reporting failure (both timeout and incorrect crc)
+ * - timeout_ms - timeout in ms for the roundtrip sending command and waiting for ACK or response
  * - strict_0xFF_ACK - require strict 0xFF ACK byte matching (treat non 0xFF as crc failure
  * 
  * returns:
  * ROBOCLAW_OK on success, ROBOCLAW_FAILURE on failure and you can query errno for details about error
  *  
 */
-int roboclaw_init_ext(struct roboclaw *rc, const char *tty, speed_t baudrate, int retries, int strict_0xFF_ACK);
+int roboclaw_init_ext(struct roboclaw *rc, const char *tty, speed_t baudrate, int timeout_ms, int retries, int strict_0xFF_ACK);
 
 
 /*
@@ -103,6 +104,7 @@ enum {ROBOCLAW_BUFFER_SIZE=128};
 struct roboclaw
 {
 	int fd;
+	int timeout_ms;
 	int retries;
 	int strict_0xFF_ACK;
 	struct termios initial_termios;

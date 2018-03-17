@@ -21,7 +21,9 @@
 #include <sys/select.h> //select
 
 //default library values
-enum {ROBOCLAW_PACKET_TIMETOUT_MS=10, ROBOCLAW_DEFAULT_RETRIES=3, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK=0};
+enum {ROBOCLAW_DEFAULT_RETRIES=3, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK=0, ROBOCLAW_B2400_TIMEOUT_MS=100,
+ ROBOCLAW_B9600_TIMEOUT_MS=30,ROBOCLAW_B19200_TIMEOUT_MS=20, ROBOCLAW_B38400_TIMEOUT_MS=15,
+ ROBOCLAW_B57600_TIMEOUT_MS=13, ROBOCLAW_B115200_ABOVE_TIMEOUT_MS=12};
 
 //ACK bytes, crc sizes, reply sizes
 enum { ROBOCLAW_ACK_BYTE=0xff, ROBOCLAW_ACK_BYTES=1, ROBOCLAW_CRC16_BYTES=2, ROBOCLAW_READ_MAIN_BATTERY_REPLY_BYTES=4, ROBOCLAW_READ_ENCODERS_REPLY_BYTES=10};
@@ -141,7 +143,7 @@ static void decode_read_encoders(uint8_t *buffer, int32_t *enc1, int32_t *enc2);
 
 /* tty communication helper functions */
 static int write_all(int fd, uint8_t *data, int data_size);
-static int wait_input(int fd, struct termios *io, int bytes_read);
+static int wait_input(int fd, struct termios *io, int bytes_read, int timeout_ms);
 static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_read, uint16_t cmd_crc16);
 
 
@@ -301,7 +303,7 @@ static int write_all(int fd, uint8_t *data, int data_size)
 // -1 on error (can be signal like EINTR), 0 on timetout, 1 on  input
 // Tell through termios that we want to be woken up only if bytes_read bytes are waiting
 // Timewout if ROBOCLAW_PACKET_TIMEOUT_MS is exceeded
-static int wait_input(int fd, struct termios *io, int bytes_read)
+static int wait_input(int fd, struct termios *io, int bytes_read,int timeout_ms)
 {
 	struct timeval tv;
 	fd_set rfds;
@@ -311,7 +313,7 @@ static int wait_input(int fd, struct termios *io, int bytes_read)
 	FD_SET(fd, &rfds);
 	
 	tv.tv_sec=0;
-	tv.tv_usec = ROBOCLAW_PACKET_TIMETOUT_MS*1000;  
+	tv.tv_usec = timeout_ms*1000;  
 
 	//tell the system to only wake us up if enough data is waiting
 	//
@@ -351,7 +353,7 @@ static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_
 			if( write_all(rc->fd, rc->buffer, bytes_write) == -1)
 				return ROBOCLAW_ERROR; //error, errno set
 
-			if( (status=wait_input(rc->fd, &rc->actual_termios, bytes_read)) == 1 )
+			if( (status=wait_input(rc->fd, &rc->actual_termios, bytes_read, rc->timeout_ms)) == 1 )
 				break; //got answer
 			
 			if(status==-1) 
@@ -394,11 +396,20 @@ static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_
 
 int roboclaw_init(struct roboclaw *rc, const char* tty, speed_t baudrate)
 {
-	return roboclaw_init_ext(rc, tty, baudrate, ROBOCLAW_DEFAULT_RETRIES, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK);
+	int timeout_ms;
+	if(baudrate == B2400) timeout_ms=ROBOCLAW_B2400_TIMEOUT_MS;
+	else if(baudrate == B9600) timeout_ms=ROBOCLAW_B9600_TIMEOUT_MS;
+	else if(baudrate == B19200) timeout_ms=ROBOCLAW_B19200_TIMEOUT_MS;
+	else if(baudrate == B38400) timeout_ms=ROBOCLAW_B38400_TIMEOUT_MS;
+	else if(baudrate == B57600) timeout_ms=ROBOCLAW_B57600_TIMEOUT_MS;
+	else timeout_ms=ROBOCLAW_B115200_ABOVE_TIMEOUT_MS;
+	
+	return roboclaw_init_ext(rc, tty, baudrate, timeout_ms, ROBOCLAW_DEFAULT_RETRIES, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK);
 }
 
-int roboclaw_init_ext(struct roboclaw *rc, const char* tty, speed_t baudrate, int retries, int strict_0xFF_ACK)
+int roboclaw_init_ext(struct roboclaw *rc, const char* tty, speed_t baudrate, int timeout_ms, int retries, int strict_0xFF_ACK)
 {		
+	rc->timeout_ms=timeout_ms;
 	rc->retries=retries;
 	rc->strict_0xFF_ACK=strict_0xFF_ACK;
 	

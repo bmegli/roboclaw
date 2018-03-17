@@ -145,6 +145,7 @@ static void decode_read_encoders(uint8_t *buffer, int32_t *enc1, int32_t *enc2);
 static int write_all(int fd, uint8_t *data, int data_size);
 static int wait_input(int fd, struct termios *io, int bytes_read, int timeout_ms);
 static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_read, uint16_t cmd_crc16);
+static int flush_io(int fd);
 
 
 /* Protocol related implementation */
@@ -343,7 +344,6 @@ static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_
 	
 	uint16_t calculated_crc16, received_crc16;
 
-	
 	//block with send/receive/crc check retries (this means roboclaw received correctly but crc failure happened on response)
 	for(r=0; r<rc->retries; ++r)
 	{		
@@ -361,6 +361,8 @@ static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_
 			
 			//otherwise ret == 0, timetout, retry if requested
 			//fprintf(stderr, "command timeout, retrying %d\n", r);
+			if(flush_io(rc->fd) == -1)
+				return ROBOCLAW_ERROR;
 		}
 
 		if(r >= rc->retries)
@@ -378,6 +380,8 @@ static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_
 		{
 			if(!rc->strict_0xFF_ACK || rc->buffer[bytes_write] == ROBOCLAW_ACK_BYTE )
 				return ROBOCLAW_OK;
+			if(flush_io(rc->fd) == -1)
+				return ROBOCLAW_ERROR;
 			continue;
 		}
 			
@@ -387,9 +391,18 @@ static int send_cmd_wait_answer(struct roboclaw *rc, int bytes_write, int bytes_
 
 		if(calculated_crc16 == received_crc16)
 			return ROBOCLAW_OK;
+
+		//if we got this far we received answer with CRC faiulure
+		if(flush_io(rc->fd) == -1)
+			return ROBOCLAW_ERROR;
 	}
 
 	return ROBOCLAW_RETRIES_EXCEEDED;
+}
+
+static int flush_io(int fd)
+{
+	return tcflush(fd, TCIOFLUSH);
 }
 
 /* Init and teardown functions */

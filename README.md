@@ -81,7 +81,7 @@ Run `roboclaw-test` with your device, baudrate (as set on Roboclaw) and address 
 | Controller                               | Device (typically)                                                         |
 |------------------------------------------|----------------------------------------------------------------------------|
 | USB (any controller)                     | `/dev/ttyACM0`                                                             |
-| RasberryPi UART                          | `/dev/ttyAMA0`                                                             |
+| RasberryPi                               | `/dev/ttyAMA0`                                                             |
 | BeagleBoneBlack                          | `/dev/ttyO1`, `/dev/ttyO2`, `/dev/ttyO4`                                   |
 | LegoMindstorms EV3                       | `/dev/tty_in1`, `/dev/tty_in2`, `/dev/tty_in3`, `/dev/tty_in4`             |
 

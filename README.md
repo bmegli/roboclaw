@@ -113,7 +113,7 @@ See examples directory for more complete and commented examples with error handl
 
 	roboclaw_speed_m1m2(rc, 0x80, 0, 0);
 
-	roboclaw_close(&rc);
+	roboclaw_close(rc);
 ```
 
 Note - configure motors and encoders correctly in IONStudio before running speed commands

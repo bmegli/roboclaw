@@ -12,7 +12,10 @@
 #ifndef ROBOCLAW_H
 #define ROBOCLAW_H
 
-#include <termios.h> //termios, baudrate constants like B115200
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h> //uint8_t, int16_t
 
 //internal library data
@@ -23,43 +26,42 @@ enum {ROBOCLAW_ERROR=-1, ROBOCLAW_RETRIES_EXCEEDED=-2, ROBOCLAW_OK=0};
 
 /* Initialize roboclaw communication with default values
  * 
- * ROBOCLAW_FAILURE is returned most likely on incorrect tty device or permission error (are you in dialout group?)
+ * NULL is returned most likely on incorrect tty device or permission error (are you in dialout group?)
  * 
  * parameters:
- * - rc - pointer to library internal data
- * - tty - the device (e.g. /dev/ttyAMA0, /dev/ttyUSB0)
- * - baudrate - as defined in termios.h (e.g. B38400, B115200, ... many systems also define higher baudrates than standard)
+ * - tty - the device (e.g. /dev/ttyAMA0, /dev/ttyUSB0, /dev/ttyO1)
+ * - baudrate - has to match the one set on roboclaw (2400, 9600, 19200, 38400, 57600, 115200, 230400, 460800)
  * 
  * returns:
- * ROBOCLAW_OK on success, ROBOCLAW_FAILURE on failure and you can query errno for details about error
+ * NULL on failure, and pointer to library data on success, on failure you can query errno for details about error
  *  
 */
-int roboclaw_init(struct roboclaw *rc, const char *tty, speed_t baudrate);
+struct roboclaw *roboclaw_init(const char *tty, int baudrate);
 
 
 /* Initialize roboclaw communication
  * 
- * ROBOCLAW_FAILURE is returned most likely on incorrect tty device or permission error (are you in dialout group?)
+ * NULL is returned most likely on incorrect tty device or permission error (are you in dialout group?)
  * 
  * parameters:
- * - rc - pointer to library internal data
- * - tty - the device (e.g. /dev/ttyAMA0, /dev/ttyUSB0)
- * - baudrate - as defined in termios.h (e.g. B38400, B115200, ... many systems also define higher baudrates than standard)
+ * - tty - the device (e.g. /dev/ttyAMA0, /dev/ttyUSB0, /dev/ttyO1)
+ * - baudrate - has to match the one set on roboclaw (2400, 9600, 19200, 38400, 57600, 115200, 230400, 460800)
  * - retries - the number of retries the library should make before reporting failure (both timeout and incorrect crc)
  * - timeout_ms - timeout in ms for the roundtrip sending command and waiting for ACK or response
  * - strict_0xFF_ACK - require strict 0xFF ACK byte matching (treat non 0xFF as crc failure
  * 
  * returns:
- * ROBOCLAW_OK on success, ROBOCLAW_FAILURE on failure and you can query errno for details about error
+ * NULL on failure, and pointer to library data on success, on failure you can query errno for details about error
  *  
 */
-int roboclaw_init_ext(struct roboclaw *rc, const char *tty, speed_t baudrate, int timeout_ms, int retries, int strict_0xFF_ACK);
+struct roboclaw *roboclaw_init_ext(const char *tty, int baudrate, int timeout_ms, int retries, int strict_0xFF_ACK);
 
 
 /*
  * Cleans after library 
  *
- * Closes file descriptor and resets terminal to initial settings
+ * Closes file descriptor, resets terminal to initial settings and frees the memory.
+ * Calling this function with NULL argument is legal and will result in ROBOCLAW_OK
  * 
  * parameters:
  * rc - pointer to library internal data
@@ -81,7 +83,7 @@ int roboclaw_close(struct roboclaw *rc);
  * 
  * All the commands take parametrs:
  * - rc - pointer to library internal data
- * - address - the address to roboclaw that should receive command
+ * - address - the address of roboclaw that should receive command (from 0x80 to 0x87)
  * - ...
  * - and command specific parameters
  * 
@@ -93,23 +95,8 @@ int roboclaw_speed_accel_m1m2(struct roboclaw *rc,uint8_t address, int speed_m1,
 int roboclaw_main_battery_voltage(struct roboclaw *rc,uint8_t address, int16_t *voltage);
 int roboclaw_encoders(struct roboclaw *rc, uint8_t address, int32_t *enc_m1, int32_t *enc_m2);
 
-
-// Implementation details, this was left in header file only so
-// that you can use the library without dynamic memory allocation 
-// The alternative is predeclaration and malloc in init functions 
-
-//buffer has to be big enough to accomodate both command and its reply
-enum {ROBOCLAW_BUFFER_SIZE=128};
-
-struct roboclaw
-{
-	int fd;
-	int timeout_ms;
-	int retries;
-	int strict_0xFF_ACK;
-	struct termios initial_termios;
-	struct termios actual_termios;
-	uint8_t buffer[ROBOCLAW_BUFFER_SIZE];
-};
+#ifdef __cplusplus
+}
+#endif
 
 #endif // ROBOCLAW_H

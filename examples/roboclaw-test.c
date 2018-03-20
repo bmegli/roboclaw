@@ -20,11 +20,9 @@
  *  -stops the motors
  *  -cleans after library
  * 
- *  Example uses fixed baudrate 38400
+ *  Program expects terminal device, baudrate and roboclaw address (from 0x80 to 0x87, ignored in USB mode) e.g.
  * 
- *  Program expects terminal device and roboclow address (from 0x80 to 0x87, ignored in USB mode) e.g.
- * 
- *  roboclaw-test /dev/ttyACM0 0x80
+ *  roboclaw-test /dev/ttyACM0 38400 0x80
  * 
  */
  
@@ -39,22 +37,25 @@ void informative_terminate(struct roboclaw  *rc);
 
 int main(int argc, char **argv)
 {
-	struct roboclaw rc;
+	struct roboclaw *rc;
 	uint8_t address=0x80; //address of roboclaw unit
 	int16_t voltage;
 	float voltage_float;
-	int duty_cycle;
+	int baudrate, duty_cycle;
 	
-	if(argc != 3)
+	if(argc != 4)
 	{
 		usage(argv);
 		return 0;
 	}
 
-	address = (uint8_t)strtol(argv[2], NULL, 0);
-	
-	//initialize at supplied terminal with default baudrate 38400
-	if(roboclaw_init(&rc, argv[1], B38400) != ROBOCLAW_OK)
+	baudrate = (int)strtol(argv[2], NULL, 10);
+	address = (uint8_t)strtol(argv[3], NULL, 0);
+
+	//initialize at supplied terminal at specified baudrate
+	rc=roboclaw_init(argv[1], baudrate);
+
+	if( rc == NULL )
 	{
 		perror("unable to initialize roboclaw");
 		exit(1);
@@ -63,8 +64,8 @@ int main(int argc, char **argv)
 	printf("initialized communication with roboclaw\n");
 	
 	//read the battery voltage
-	if(roboclaw_main_battery_voltage(&rc, address, &voltage) != ROBOCLAW_OK)
-		informative_terminate(&rc);
+	if(roboclaw_main_battery_voltage(rc, address, &voltage) != ROBOCLAW_OK)
+		informative_terminate(rc);
 
 	voltage_float = (float)voltage/10.0f;
 	printf("battery voltage is : %f V\n", voltage_float);
@@ -87,7 +88,7 @@ int main(int argc, char **argv)
 		//32767 is max duty cycle setpoint that roboclaw accepts
 		duty_cycle = (float)duty_cycle/100.0f * 32767;	
 		
-		if(roboclaw_duty_m1m2(&rc, address, duty_cycle, duty_cycle) != ROBOCLAW_OK )
+		if(roboclaw_duty_m1m2(rc, address, duty_cycle, duty_cycle) != ROBOCLAW_OK )
 		{
 			fprintf(stderr, "problem communicating with roboclaw, terminating\n");
 			break;			
@@ -96,9 +97,9 @@ int main(int argc, char **argv)
 	
 	//make sure the motors are stopped before leaving
 	printf("stopping the motors..\n");
-	roboclaw_duty_m1m2(&rc, address, 0, 0);
+	roboclaw_duty_m1m2(rc, address, 0, 0);
 		
-	if(roboclaw_close(&rc) != ROBOCLAW_OK)
+	if(roboclaw_close(rc) != ROBOCLAW_OK)
 		perror("unable to shutdown roboclaw cleanly");
 
 	printf("bye...\n");
@@ -109,11 +110,11 @@ int main(int argc, char **argv)
 void usage(char **argv)
 {
 	printf("Usage:\n");
-	printf("%s terminal_device address\n\n", argv[0]);
+	printf("%s terminal_device baudrate address\n\n", argv[0]);
 	printf("examples:\n");
-	printf("%s /dev/ttyACM0 0x80\n", argv[0]);
-	printf("%s /dev/ttyAMA0 0x80\n", argv[0]);
-	printf("%s /dev/tty_in1 0x80\n", argv[0]);
+	printf("%s /dev/ttyACM0 38400 0x80\n", argv[0]);
+	printf("%s /dev/ttyAMA0 460800 0x81\n", argv[0]);
+	printf("%s /dev/tty_in1 115200 0x82\n", argv[0]);
 }
 
 void informative_terminate(struct roboclaw *rc)
@@ -122,7 +123,7 @@ void informative_terminate(struct roboclaw *rc)
 	fprintf(stderr, "make sure you are:\n");
 	fprintf(stderr, "-using correct tty device\n");
 	fprintf(stderr, "-using correct address\n");
-	fprintf(stderr, "-set correct roboclaw baudrate (hardcoded 38400 in example)\n");
+	fprintf(stderr, "-set correct roboclaw baudrate\n");
 	fprintf(stderr, "-wired things correctly\n");
 	fprintf(stderr, "terminating...\n");
 	roboclaw_close(rc);

@@ -100,10 +100,10 @@ Run `roboclaw-test` with your device
 See examples directory for more complete and commented examples with error handling.
 
 ``` C
-	struct roboclaw rc;
+	struct roboclaw *rc;
 	int16_t voltage;
 
-	roboclaw_init(&rc, tty, B460800);
+	rc=roboclaw_init("/dev/ttyACM0", 115200);
 
 	roboclaw_main_battery_voltage(rc, 0x80, &voltage)	
 

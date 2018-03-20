@@ -19,6 +19,8 @@
 #include <endian.h> //htobe16, htobe32, be16toh
 #include <string.h> //memcpy
 #include <sys/select.h> //select
+#include <malloc.h> //malloc, free
+#include <errno.h> //errno
 
 //default library values
 enum {ROBOCLAW_DEFAULT_RETRIES=3, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK=0, ROBOCLAW_B2400_TIMEOUT_MS=100,
@@ -26,7 +28,22 @@ enum {ROBOCLAW_DEFAULT_RETRIES=3, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK=0, ROBOCLAW_B
  ROBOCLAW_B57600_TIMEOUT_MS=13, ROBOCLAW_B115200_ABOVE_TIMEOUT_MS=12};
 
 //ACK bytes, crc sizes, reply sizes
-enum { ROBOCLAW_ACK_BYTE=0xff, ROBOCLAW_ACK_BYTES=1, ROBOCLAW_CRC16_BYTES=2, ROBOCLAW_READ_MAIN_BATTERY_REPLY_BYTES=4, ROBOCLAW_READ_ENCODERS_REPLY_BYTES=10};
+enum { ROBOCLAW_ACK_BYTE=0xff, ROBOCLAW_ACK_BYTES=1, ROBOCLAW_CRC16_BYTES=2,
+ ROBOCLAW_READ_MAIN_BATTERY_REPLY_BYTES=4, ROBOCLAW_READ_ENCODERS_REPLY_BYTES=10};
+
+enum {ROBOCLAW_BUFFER_SIZE=128}; //has to be big enough to accomodate both command and its reply
+
+struct roboclaw
+{
+	int fd;
+	int timeout_ms;
+	int retries;
+	int strict_0xFF_ACK;
+	struct termios initial_termios;
+	struct termios actual_termios;
+	uint8_t buffer[ROBOCLAW_BUFFER_SIZE];
+};
+
 
 // Roboclaw commands
 enum {		M1FORWARD = 0,
@@ -407,32 +424,63 @@ static int flush_io(int fd)
 
 /* Init and teardown functions */
 
-int roboclaw_init(struct roboclaw *rc, const char* tty, speed_t baudrate)
+struct roboclaw *roboclaw_init(const char* tty, int baudrate)
 {
 	int timeout_ms;
-	if(baudrate == B2400) timeout_ms=ROBOCLAW_B2400_TIMEOUT_MS;
-	else if(baudrate == B9600) timeout_ms=ROBOCLAW_B9600_TIMEOUT_MS;
-	else if(baudrate == B19200) timeout_ms=ROBOCLAW_B19200_TIMEOUT_MS;
-	else if(baudrate == B38400) timeout_ms=ROBOCLAW_B38400_TIMEOUT_MS;
-	else if(baudrate == B57600) timeout_ms=ROBOCLAW_B57600_TIMEOUT_MS;
+	if(baudrate == 2400) timeout_ms=ROBOCLAW_B2400_TIMEOUT_MS;
+	else if(baudrate == 9600) timeout_ms=ROBOCLAW_B9600_TIMEOUT_MS;
+	else if(baudrate == 19200) timeout_ms=ROBOCLAW_B19200_TIMEOUT_MS;
+	else if(baudrate == 38400) timeout_ms=ROBOCLAW_B38400_TIMEOUT_MS;
+	else if(baudrate == 57600) timeout_ms=ROBOCLAW_B57600_TIMEOUT_MS;
 	else timeout_ms=ROBOCLAW_B115200_ABOVE_TIMEOUT_MS;
 	
-	return roboclaw_init_ext(rc, tty, baudrate, timeout_ms, ROBOCLAW_DEFAULT_RETRIES, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK);
+	return roboclaw_init_ext(tty, baudrate, timeout_ms, ROBOCLAW_DEFAULT_RETRIES, ROBOCLAW_DEFAULT_STRICT_0XFF_ACK);
 }
 
-int roboclaw_init_ext(struct roboclaw *rc, const char* tty, speed_t baudrate, int timeout_ms, int retries, int strict_0xFF_ACK)
+struct roboclaw *roboclaw_init_ext(const char* tty, int baudrate, int timeout_ms, int retries, int strict_0xFF_ACK)
 {		
+	struct roboclaw *rc;
+	speed_t speed=0;
+
+	if(baudrate == 2400) speed=B2400;
+	else if(baudrate == 9600) speed=B9600;
+	else if(baudrate == 19200) speed=B19200;
+	else if(baudrate == 38400) speed=B38400;
+	else if(baudrate == 57600) speed=B57600;
+	else if(baudrate == 115200) speed=B115200;
+	else if(baudrate == 230400) speed=B230400;
+
+//B460800 is non-standard but is defined on modern systems
+#ifdef B460800
+	if(baudrate == 460800) speed=B460800;
+#endif
+
+	if(speed == 0)
+	{
+		errno=EINVAL;
+		return NULL;
+	}
+
+	rc=(struct roboclaw *)malloc(sizeof(struct roboclaw));
+
+	if( rc == NULL )
+		return NULL;
+
 	rc->timeout_ms=timeout_ms;
 	rc->retries=retries;
 	rc->strict_0xFF_ACK=strict_0xFF_ACK;
 	
 	if ( (rc->fd=open(tty, O_RDWR)) ==-1 )
-		return ROBOCLAW_ERROR;
+	{
+		free(rc);
+		return NULL;
+	}
 	
 	if(tcgetattr(rc->fd, &rc->initial_termios) < 0)
 	{
 		close(rc->fd);
-		return ROBOCLAW_ERROR;
+		free(rc);
+		return NULL;
 	}	
 	
 	rc->actual_termios.c_iflag=rc->actual_termios.c_oflag=rc->actual_termios.c_lflag=0;
@@ -443,16 +491,18 @@ int roboclaw_init_ext(struct roboclaw *rc, const char* tty, speed_t baudrate, in
 	if(cfsetispeed(&rc->actual_termios, baudrate) < 0 || cfsetospeed(&rc->actual_termios, baudrate) < 0)
 	{
 		close(rc->fd);
-		return ROBOCLAW_ERROR;
+		free(rc);
+		return NULL;
 	}	
 
 	if(tcsetattr(rc->fd, TCSAFLUSH, &rc->actual_termios) < 0)
 	{
 		close(rc->fd);
-		return ROBOCLAW_ERROR;
+		free(rc);
+		return NULL;
 	}
 	
-	// from man
+	// from man (TO DO)
 	// Note that tcsetattr() returns success if any of the  requested  changes
     // could  be  successfully  carried  out.  Therefore, when making multiple
     // changes it may be necessary to follow this call with a further call  to
@@ -466,15 +516,21 @@ int roboclaw_init_ext(struct roboclaw *rc, const char* tty, speed_t baudrate, in
 
 int roboclaw_close(struct roboclaw *rc)
 {
-	int ret;
+	int error=0;
+
+	if(rc == NULL)
+		return ROBOCLAW_OK;
 
 	// Note that tcsetattr() returns success if any of the  requested  changes
-    // could  be  successfully  carried  out.  Therefore, when making multiple
-    // changes it may be necessary to follow this call with a further call  to
-    // tcgetattr() to check that all changes have been performed successfully.
-	ret=tcsetattr(rc->fd, TCSANOW, &rc->initial_termios); 
-	
-	if(close(rc->fd)<0 || ret<0)
+	// could  be  successfully  carried  out.  Therefore, when making multiple
+	// changes it may be necessary to follow this call with a further call  to
+	// tcgetattr() to check that all changes have been performed successfully.
+	error |= tcsetattr(rc->fd, TCSANOW, &rc->initial_termios) < 0;
+	error |= close(rc->fd) < 0;
+
+	free(rc);
+
+	if(error)
 		return ROBOCLAW_ERROR;
 	
 	return ROBOCLAW_OK;

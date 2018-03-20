@@ -92,7 +92,7 @@ Run `roboclaw-test` with your device, baudrate and address
 (e.g. device `/dev/ttyACM0` for USB, `/dev/ttyAMA0` for RaspberryPi UART, `/dev/tty_in1` for Lego Mindstorms EV3)
 
 ``` bash
-./roboclaw-test 115200 /dev/ttyACM0 0x80
+./roboclaw-test /dev/ttyACM0 115200 0x80
 ```
 
 ## Using

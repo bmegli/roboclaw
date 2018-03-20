@@ -28,18 +28,6 @@ ACK-purge race - Roboclaw ACK byte not read, on commands tty buffers flushed res
 
 garbage on timeout - when read times out library returns garbage values and there is no way to check if it was timeout
 
-### This library design
-
-Goals:
-- ligthweight for CPU
-- low level handled in the library for user
-- easy for setup
-
-Achieved by:
-- block IO (not byte-by-byte), waked up by OS only when real work is waiting or timeout
-- configurable auto-retry on low-level
-- no dependencies, permissive license
-
 ## Scope
 
 The library implements only a subset of commands that I use and I have no plans to implement all possible Roboclaw commands.
@@ -88,8 +76,14 @@ Run as sudo or add your user to dialout group:
 usermod -a -G dialout your_user
 ```
 
-Run `roboclaw-test` with your device, baudrate and address 
-(e.g. device `/dev/ttyACM0` for USB, `/dev/ttyAMA0` for RaspberryPi UART, `/dev/tty_in1` for Lego Mindstorms EV3)
+Run `roboclaw-test` with your device, baudrate (as set on Roboclaw) and address (from 0x80 to 0x87)
+
+| Controller                               | Device (typically)                                                         |
+|------------------------------------------|----------------------------------------------------------------------------|
+| USB (any controller)                     | `/dev/ttyACM0`                                                             |
+| RasberryPi UART                          | `/dev/ttyAMA0`                                                             |
+| BeagleBoneBlack                          | `/dev/ttyO1`, `/dev/ttyO2`, `/dev/ttyO4`                                   |
+| LegoMindstorms EV3                       | `/dev/tty_in1`, `/dev/tty_in2`, `/dev/tty_in3`, `/dev/tty_in4`             |
 
 ``` bash
 ./roboclaw-test /dev/ttyACM0 115200 0x80

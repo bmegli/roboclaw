@@ -44,7 +44,6 @@ struct roboclaw
 	uint8_t buffer[ROBOCLAW_BUFFER_SIZE];
 };
 
-
 // Roboclaw commands
 enum {		M1FORWARD = 0,
 			M1BACKWARD = 1,
@@ -488,7 +487,7 @@ struct roboclaw *roboclaw_init_ext(const char* tty, int baudrate, int timeout_ms
 	rc->actual_termios.c_cc[VMIN]=1;
 	rc->actual_termios.c_cc[VTIME]=0;
 
-	if(cfsetispeed(&rc->actual_termios, baudrate) < 0 || cfsetospeed(&rc->actual_termios, baudrate) < 0)
+	if(cfsetispeed(&rc->actual_termios, speed) < 0 || cfsetospeed(&rc->actual_termios, speed) < 0)
 	{
 		close(rc->fd);
 		free(rc);
@@ -511,7 +510,7 @@ struct roboclaw *roboclaw_init_ext(const char* tty, int baudrate, int timeout_ms
     // this is still edge case to consider, some settings may have not been made
 	// solution tcgetattr and check settings we made for equality
 	
-	return ROBOCLAW_OK;
+	return rc;
 }
 
 int roboclaw_close(struct roboclaw *rc)

@@ -138,6 +138,17 @@ This is similiar to LGPL but more permissive:
 Like in LGPL, if you modify this library, you have to make your changes publicly available.
 Making a github fork of the library with your changes satisfies those requirements perfectly. 
 
+## Additional information
 
+### Building with CMake
 
+Alternatively build examples and library with Cmake
 
+``` bash
+sudo apt-get install cmake
+cd roboclaw
+mkdir build
+cd build
+cmake ..
+make
+```
